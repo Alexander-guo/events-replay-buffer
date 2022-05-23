@@ -6,7 +6,7 @@ from time import time, sleep
 import _thread
 
 class Replay_buffer():
-    def __init__(self, input_path="", start_ts=0, mode="delta_t", delta_t=40000, n_events=1000, 
+    def __init__(self, input_path="", start_ts=0, mode="delta_t", delta_t=20000, n_events=1000, 
     max_duration=None, relative_timestamps=False, accum_time=20000, replay_time=2, slow_scale=5):
         self.events_iterator = EventsIterator(input_path=input_path, 
                                             start_ts=start_ts, mode=mode, 
@@ -24,9 +24,8 @@ class Replay_buffer():
         self.slow_scale = slow_scale
 
     def run(self):
-       
         # Window - Graphical User Interface
-        with Window(title="Real-time Play", width=self.width, height=self.height, mode=BaseWindow.RenderMode.BGR) as window:
+        with Window(title="Real-time Play", width=4 * self.width, height=4 * self.height, mode=BaseWindow.RenderMode.BGR) as window:
             def keyboard_cb(key, scancode, action, mods):
                 if action != UIAction.RELEASE:
                     return
@@ -36,11 +35,11 @@ class Replay_buffer():
                 if key == UIKeyEvent.KEY_SPACE and len(self.rply_buffer) == self.rply_buffer_size:
                     self.should_clear = False
                     print("--------Open Replay Window--------")
-                    t_rply1 = time()
+                    #t_rply1 = time()
                     self.replay_callback()
                     self.should_clear = True
-                    t_rply2 = time()
-                    print("replay time: {} s".format(t_rply2 - t_rply1))
+                    #t_rply2 = time()
+                    #print("replay time: {} s".format(t_rply2 - t_rply1))
                     print("--------Close Replay Window--------")
                     
             window.set_keyboard_callback(keyboard_cb)
@@ -49,14 +48,11 @@ class Replay_buffer():
             event_frame_gen = PeriodicFrameGenerationAlgorithm(self.width, self.height, self.accum_time)
 
             def on_cd_frame_cb(ts, cd_frame):
-                #print("Before window ", time())
                 window.show(cd_frame)
-                #print("After window ", time())
 
             event_frame_gen.set_output_callback(on_cd_frame_cb)
 
             t1 = time()
-            t2 = 0
             i = 0
 
             # evs is a list of tuples, each tuple is an event
@@ -98,23 +94,23 @@ class Replay_buffer():
                 
                 # test the time
                 i += 1
-                if i % 10 == 0:
-                    t3 = time()
-                    #print("time to run {} iterations: {} s".format(i, t2 - t1))
-                    #print("avg time to run each iteration: {} ms".format((t3 - t2) / 10.0 * 1e3))
-                    #print("evs: ", evs)
-                    t2 = t3
+                if i == self.rply_buffer_size:
+                    t2 = time()
+                    print("time to play a replay buffer in normal speed: {} s".format(t2 - t1))
+                    t1 = time()
+                    i = 0
 
 
     def replay_callback(self):
         rply_buffer = deepcopy(self.rply_buffer)
 
         def make_window():
-            with Window(title="Replay Window", width=self.width, height=self.height, mode=BaseWindow.RenderMode.BGR) as rply_window:
+            with Window(title="Replay Window", width=4 * self.width, height=4 * self.height, mode=BaseWindow.RenderMode.BGR) as rply_window:
                 def keyboard_cb(key, scancode, action, mods):
                     if action != UIAction.RELEASE:
                         return
                     if key == UIKeyEvent.KEY_ESCAPE or key == UIKeyEvent.KEY_Q:
+                        print("--should close replay--")
                         rply_window.set_close_flag()
 
                 rply_window.set_keyboard_callback(keyboard_cb)
@@ -127,9 +123,13 @@ class Replay_buffer():
 
                 rply_event_frame_gen.set_output_callback(on_cd_frame_cb)
 
+                time_per_iter = self.accum_time * 1.0e-6 * self.slow_scale
+                print("time_per_iter: ", time_per_iter)
+
                 t_rply1 = time()
                 first = True
-
+                
+                j = 0
                 last_time = time()
                 for evs in rply_buffer:
                     if first:
@@ -139,15 +139,27 @@ class Replay_buffer():
                     EventLoop.poll_and_dispatch()
                     rply_event_frame_gen.process_events(evs)
 
-                    cur_time = time()
-                    if cur_time - last_time < 0.02:
-                        sleep(0.02 - (cur_time - last_time))
-                    last_time = cur_time
-                        
+                    #cur_time = time()
+                    #print("time of one iter: {} s".format(cur_time - last_time))
+
+                    #if cur_time - last_time < time_per_iter:
+                        #sleep(time_per_iter - (cur_time - last_time))
+                        #print("wait to display")
+                    #last_time = cur_time   
+
+                    j += 1
+
+                    while time() - last_time < time_per_iter:
+                        continue
+                    last_time = time()
+
+                    if rply_window.should_close():
+                        break
                     #print("replay fps: ", rply_event_frame_gen.get_fps())
-                max_t = evs['t'][-1]   # Get the timestamp of the first event of this callback
+                max_t = evs['t'][-1]   # Get the timestamp of the last event of this callback
                 print("Event elapse: ", max_t - min_t)
+                # print("j:", j)
                 t_rply2 = time()
-            #print("replay time: {} s".format(t_rply2 - t_rply1))
+            print("replay time: {} s".format(t_rply2 - t_rply1))
 
         _thread.start_new_thread(make_window, ())
