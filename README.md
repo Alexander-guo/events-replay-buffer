@@ -2,6 +2,10 @@
 
 Events are pixel-level brightness changes recorded by DVS (Dynamic Vision Sensor). This buffer is able to replay live events stream or events recordings into super slow motion.
 
+<p align="center">
+  <img src="buffer1.gif" width="400">
+</p>
+
 ## Requirements
 
 Base system requirements: Linux Ubuntu 20.04 or 22.04 64bit.
