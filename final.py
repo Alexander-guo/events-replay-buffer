@@ -5,7 +5,7 @@ from replay_buffer import *
 def parse_args():
     import argparse
     """Parse command line arguments."""
-    parser = argparse.ArgumentParser(description='Metavision SDK Get Started sample.',
+    parser = argparse.ArgumentParser(description='Replay Buffer based on Metavision SDK.',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument(
         '-i', '--input-raw-file', dest='input_path', default="",
